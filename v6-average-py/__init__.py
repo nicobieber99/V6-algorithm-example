@@ -2,7 +2,7 @@ import time
 
 from vantage6.tools.util import info
 
-def master(client, data, column_name, organization_ids):
+def master(client, data, column_name):
     """Combine partials to global model
     First we collect the parties that participate in the collaboration.
     Then we send a task to all the parties to compute their partial (the
@@ -31,7 +31,11 @@ def master(client, data, column_name, organization_ids):
     # will create a new task at the central server for them to pick up.
     # We've used a kwarg but is is also possible to use `args`. Although
     # we prefer kwargs as it is clearer.
+
+	# Column name corresponds to the column on which we want to do the average. This is specified in the input when creating the task (similarly to here)
+	# The kwargs in input all depend on what you want to pass on to the subtasks
     info('Requesting partial computation')
+	# This creates the subtasks to be executed at the nodes and return the partial results of the task
     task = client.create_new_task(
         input_={
             'method': 'average_partial',
@@ -39,7 +43,7 @@ def master(client, data, column_name, organization_ids):
                 'column_name': column_name
             }
         },
-        organization_ids = organization_ids
+        organization_ids = ids
     )
 
     # Now we need to wait untill all organizations(/nodes) finished
@@ -57,11 +61,9 @@ def master(client, data, column_name, organization_ids):
         attempts += 1
         time.sleep(3)
 
-    # Once we now the partials are complete, we can collect them.
+    # Once we know the partials are complete, we can collect them.
     info("Obtaining results")
     results = client.get_results(task_id=task.get("id"))
-
-    # Once we now the partials are complete, we can collect them.
 
     # Now we can combine the partials to a global average.
     global_sum = 0
@@ -72,6 +74,7 @@ def master(client, data, column_name, organization_ids):
 
     return {"average": global_sum / global_count}
 
+# This is the subtask that gets executed at the individual nodes
 def RPC_average_partial(data, column_name):
     """Compute the average partial
     The data argument contains a pandas-dataframe containing the local
